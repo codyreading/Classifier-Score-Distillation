@@ -1,5 +1,9 @@
 # <p align="center"> Text-to-3D with Classifier Score Distillation
 
+
+## Introduction
+This repository includes the implementation of applying Classifier Score Distillation [(CSD)](https://github.com/CVMI-Lab/Classifier-Score-Distillation) to a diffusion prior with multi-view capabilities (i.e., [MVDream](https://github.com/bytedance/MVDream-threestudio)), which effectively addresses the Janus problem.
+
 #####  <p align="center"> [Xin Yu](https://scholar.google.com/citations?user=JX8kSoEAAAAJ&hl=zh-CN), [Yuan-Chen Guo](https://scholar.google.com/citations?user=b7ZJV9oAAAAJ&hl=zh-CN), [Yangguang Li](https://yg256li.github.io/), [Ding Liang](https://scholar.google.com/citations?user=Dqjnn0gAAAAJ&hl=zh-CN), [Song-Hai Zhang](https://scholar.google.com/citations?user=AWtV-EQAAAAJ&hl=en), [Xiaojuan Qi](https://scholar.google.com/citations?user=bGn0uacAAAAJ&hl=en)
 
 ### <p align="center"> [Project Page](https://xinyu-andy.github.io/Classifier-Score-Distillation/) | [Paper](https://arxiv.org/abs/2310.19415)
@@ -22,23 +26,14 @@ https://github.com/CVMI-Lab/Classifier-Score-Distillation/assets/60741299/edad7b
 https://github.com/CVMI-Lab/Classifier-Score-Distillation/assets/60741299/17e8010f-8281-4f99-a80a-e07599905759
 
 
-
-
-
-
-
-
 ## Installation
-The codebase is built upon the Threestudio framework. Please follow the installation instructions available at the [Threestudio](https://github.com/threestudio-project/threestudio) repository for environment setup and basic usage.
-## Running the Code
-To run the Classifier Score Distillation (CSD) code, simply execute the provided `run.sh` script. 
-For prompts that do not contain clear directional objects, it is recommended to use the alternative configuration by running `run2.sh`, which is tailored for such scenarios.
+The codebase is built upon the MVDream-threestudio framework. Please follow the installation instructions available at the MVDream-threestudio repository for environment setup: [MVDream-threestudio Repo](https://github.com/bytedance/MVDream-threestudio).
 
-## Addressing the Janus Problem
-While this work does not directly solve the Janus problem, as it primarily arises from the lack of 3D-aware capabilities in diffusion guidance, we offer a workaround. By combining [multi-view diffusion guidance](https://github.com/bytedance/MVDream-threestudio) with our CSD, it is possible to address this issue. For this, please refer to the code in the 'CSD-MVDream' branch.
+## Running the Code
+To run the Classifier Score Distillation (CSD) code, simply execute the provided `run.sh` script.
 
 ## Credits
-This codebase is built upon the [Threestudio](https://github.com/threestudio-project/threestudio). Thanks to the authors for their great codebase and contribution to the community.
+This codebase is built upon the [Threestudio](https://github.com/threestudio-project/threestudio) and [MVDream](https://github.com/bytedance/MVDream-threestudio). Thanks to the authors for their great codebase and contribution to the community.
 
 ## Citation
 Please consider :grimacing: staring this repository and citing our work if you feel this repository useful.
@@ -54,5 +49,3 @@ Please consider :grimacing: staring this repository and citing our work if you f
 
 ## Contact
 If you have any questions, you can email me (yuxin27g@gmail.com).
-
-
