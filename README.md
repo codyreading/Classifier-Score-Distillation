@@ -1,7 +1,30 @@
-# Text-to-3D with Classifier Score Distillation
+# <p align="center"> Text-to-3D with Classifier Score Distillation
+
 
 ## Introduction
 This repository includes the implementation of applying Classifier Score Distillation [(CSD)](https://github.com/CVMI-Lab/Classifier-Score-Distillation) to a diffusion prior with multi-view capabilities (i.e., [MVDream](https://github.com/bytedance/MVDream-threestudio)), which effectively addresses the Janus problem.
+
+#####  <p align="center"> [Xin Yu](https://scholar.google.com/citations?user=JX8kSoEAAAAJ&hl=zh-CN), [Yuan-Chen Guo](https://scholar.google.com/citations?user=b7ZJV9oAAAAJ&hl=zh-CN), [Yangguang Li](https://yg256li.github.io/), [Ding Liang](https://scholar.google.com/citations?user=Dqjnn0gAAAAJ&hl=zh-CN), [Song-Hai Zhang](https://scholar.google.com/citations?user=AWtV-EQAAAAJ&hl=en), [Xiaojuan Qi](https://scholar.google.com/citations?user=bGn0uacAAAAJ&hl=en)
+
+### <p align="center"> [Project Page](https://xinyu-andy.github.io/Classifier-Score-Distillation/) | [Paper](https://arxiv.org/abs/2310.19415)
+
+## Abstract
+Text-to-3D generation has made remarkable progress recently, particularly with methods based on Score Distillation Sampling (SDS) that leverages pre-trained 2D diffusion models. While the usage of classifier-free guidance is well acknowledged to be crucial for successful optimization, it is considered an auxiliary trick rather than the most essential component. In this paper, we re-evaluate the role of classifier-free guidance in score distillation and discover a surprising finding: the guidance alone is enough for effective text-to-3D generation tasks. We name this method Classifier Score Distillation (CSD), which can be interpreted as using an implicit classification model for generation. This new perspective reveals new insights for understanding existing techniques. We validate the effectiveness of CSD across a variety of text-to-3D tasks including shape generation, texture synthesis, and shape editing, achieving results superior to those of state-of-the-art methods.
+
+![Example 1](./load/images/csd_img.png)
+
+https://github.com/CVMI-Lab/Classifier-Score-Distillation/assets/60741299/500dd17b-f494-442c-ac6f-b57ccb83cd5d
+
+https://github.com/CVMI-Lab/Classifier-Score-Distillation/assets/60741299/70f8bdee-b5ed-4da0-8658-266443a7e2be
+
+https://github.com/CVMI-Lab/Classifier-Score-Distillation/assets/60741299/c59fdd56-4743-4e33-948f-c47338994f75
+
+https://github.com/CVMI-Lab/Classifier-Score-Distillation/assets/60741299/1fc595d9-8374-4831-9a6a-49ed48e0b38a
+
+https://github.com/CVMI-Lab/Classifier-Score-Distillation/assets/60741299/edad7bb4-ec75-4278-9cee-cf38a94dae60
+
+https://github.com/CVMI-Lab/Classifier-Score-Distillation/assets/60741299/17e8010f-8281-4f99-a80a-e07599905759
+
 
 ## Installation
 The codebase is built upon the MVDream-threestudio framework. Please follow the installation instructions available at the MVDream-threestudio repository for environment setup: [MVDream-threestudio Repo](https://github.com/bytedance/MVDream-threestudio).
