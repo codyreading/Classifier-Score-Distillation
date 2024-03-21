@@ -75,9 +75,32 @@ def main(args, extras) -> None:
     from threestudio.utils.callbacks import (
         CodeSnapshotCallback,
         ConfigSnapshotCallback,
-        CustomProgressBar,
         ProgressCallback,
     )
+
+    from threestudio.utils.callbacks import CustomProgressBar as CustomProgressBarTS
+
+    class CustomProgressBar(CustomProgressBarTS):
+        def init_validation_tqdm(self):
+            bar = super().init_validation_tqdm()
+            bar.set_description("Validation")
+            return bar
+
+        def init_train_tqdm(self):
+            bar = super().init_train_tqdm()
+            bar.set_description("Training")
+            return bar
+
+        def init_test_tqdm(self):
+            bar = super().init_test_tqdm()
+            bar.set_description("Testing")
+            return bar
+
+        def on_train_start(self, trainer, pl_module):
+            super().on_train_start(trainer, pl_module)
+            if trainer.max_steps:
+                self.train_progress_bar.total = trainer.max_steps
+
     from threestudio.utils.config import ExperimentConfig, load_config
     from threestudio.utils.misc import get_rank
     from threestudio.utils.typing import Optional
