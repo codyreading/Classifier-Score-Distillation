@@ -33,6 +33,7 @@ class RandomMultiviewCameraDataModuleConfig(RandomCameraDataModuleConfig):
     relative_radius: bool = True
     n_view: int = 1
     zoom_range: Tuple[float, float] = (1.0, 1.0)
+    sketch_poses: List = field(default_factory=list)
 
 class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
 
