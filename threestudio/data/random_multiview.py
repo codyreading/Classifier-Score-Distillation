@@ -157,6 +157,7 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
             + self.cfg.light_distance_range[0]
         ).repeat_interleave(self.cfg.n_view, dim=0)
 
+        breakpoint()
         if self.cfg.light_sample_strategy == "dreamfusion":
             # sample light direction from a normal distribution with mean camera_position and std light_position_perturb
             light_direction: Float[Tensor, "B 3"] = F.normalize(
