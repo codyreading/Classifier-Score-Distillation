@@ -5,7 +5,7 @@ import torch
 
 import threestudio
 from threestudio.systems.base import BaseLift3DSystem
-from threestudio.utils.misc import cleanup, get_device
+from threestudio.utils.misc import cleanup, get_device, separate_dict
 from threestudio.utils.ops import binary_cross_entropy, dot
 from threestudio.utils.typing import *
 
@@ -34,22 +34,25 @@ class MVDreamSystem(BaseLift3DSystem):
                 return
         guidance_state_dict = {"guidance."+k : v for (k,v) in self.guidance.state_dict().items()}
         checkpoint['state_dict'] = {**checkpoint['state_dict'], **guidance_state_dict}
-        return 
+        return
 
     def on_save_checkpoint(self, checkpoint):
         for k in list(checkpoint['state_dict'].keys()):
             if k.startswith("guidance."):
                 checkpoint['state_dict'].pop(k)
-        return 
+        return
 
     def forward(self, batch: Dict[str, Any]) -> Dict[str, Any]:
         return self.renderer(**batch)
 
     def training_step(self, batch, batch_idx):
-        out = self(batch)
+        out_all = self(batch)
+
+        batch_, sketch_batch = separate_dict(batch, N=batch["num_sketches"])
+        out, sketch_out = separate_dict(out_all, N=batch["num_sketches"])
 
         guidance_out = self.guidance(
-            out["comp_rgb"], self.prompt_utils, **batch
+            out["comp_rgb"], self.prompt_utils, **batch_
         )
 
         loss = 0.0
