@@ -345,6 +345,17 @@ class RandomCameraDataset(Dataset):
         else:
             self.n_views = self.cfg.n_test_views
 
+        # Get sketch views
+        sketch_elevations = []
+        sketch_azimuths = []
+        for pose in self.cfg.sketch_poses:
+           sketch_elevations.append(pose["elevation"])
+           sketch_azimuths.append(pose["azimuth"])
+
+        self.num_sketches = len(sketch_elevations)
+        sketch_elevations = torch.as_tensor(sketch_elevations, dtype=torch.float32)
+        sketch_azimuths = torch.as_tensor(sketch_azimuths, dtype=torch.float32)
+
         azimuth_deg: Float[Tensor, "B"]
         if self.split == "val":
             # make sure the first and last view are not the same
@@ -354,6 +365,12 @@ class RandomCameraDataset(Dataset):
         elevation_deg: Float[Tensor, "B"] = torch.full_like(
             azimuth_deg, self.cfg.eval_elevation_deg
         )
+
+        # Add sketches
+        azimuth_deg = torch.cat((azimuth_deg, sketch_azimuths))
+        elevation_deg = torch.cat((elevation_deg, sketch_elevations))
+        breakpoint()
+
         camera_distances: Float[Tensor, "B"] = torch.full_like(
             elevation_deg, self.cfg.eval_camera_distance
         )
@@ -407,7 +424,7 @@ class RandomCameraDataset(Dataset):
         )
         directions: Float[Tensor, "B H W 3"] = directions_unit_focal[
             None, :, :, :
-        ].repeat(self.n_views, 1, 1, 1)
+        ].repeat(self.n_views+self.num_sketches, 1, 1, 1)
         directions[:, :, :, :2] = (
             directions[:, :, :, :2] / focal_length[:, None, None, None]
         )
@@ -428,7 +445,7 @@ class RandomCameraDataset(Dataset):
         self.camera_distances = camera_distances
 
     def __len__(self):
-        return self.n_views
+        return self.n_views + self.num_sketches
 
     def __getitem__(self, index):
         return {

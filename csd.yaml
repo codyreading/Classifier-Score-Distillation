@@ -27,7 +27,7 @@ data:
       azimuth: 90
     - elevation: 0
       azimuth: 180
-    - elevation: -89.999 # Renderer for some reason doesn't work for 90. Maybe due to Gimbal Lock issue.
+    - elevation: 89.999 # Renderer for some reason doesn't work for 90. Maybe due to Gimbal Lock issue.
       azimuth: 0
   sketch_zoom: 1.0
   sketch_perturb: 0.
