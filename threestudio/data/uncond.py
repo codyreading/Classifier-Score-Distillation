@@ -2,6 +2,7 @@ import bisect
 import math
 import random
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import pytorch_lightning as pl
 import torch
@@ -53,6 +54,8 @@ class RandomCameraDataModuleConfig:
     light_sample_strategy: str = "dreamfusion"
     batch_uniform_azimuth: bool = True
     progressive_until: int = 0  # progressive ranges for elevation, azimuth, r, fovy
+    sketch_dir: str = "load/sketches"
+    object_name: str = "lambo"
 
 
 class RandomCameraIterableDataset(IterableDataset, Updateable):
@@ -98,6 +101,12 @@ class RandomCameraIterableDataset(IterableDataset, Updateable):
         self.azimuth_range = self.cfg.azimuth_range
         self.camera_distance_range = self.cfg.camera_distance_range
         self.fovy_range = self.cfg.fovy_range
+
+        # Get sketches
+        self.sketch_dir = Path(self.cfg.sketch_dir) / self.cfg.object_name
+        self.sketch_masks = torch.load(self.sketch_dir / "masks.pt")
+        self.sketch_distance_maps = torch.load(self.sketch_dir / "distances.pt")
+
 
     def update_step(self, epoch: int, global_step: int, on_load_weights: bool = False):
         size_ind = bisect.bisect_right(self.resolution_milestones, global_step) - 1
