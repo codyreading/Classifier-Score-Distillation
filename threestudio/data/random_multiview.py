@@ -34,12 +34,29 @@ class RandomMultiviewCameraDataModuleConfig(RandomCameraDataModuleConfig):
     n_view: int = 1
     zoom_range: Tuple[float, float] = (1.0, 1.0)
     sketch_poses: List = field(default_factory=list)
+    sketch_fov: float = 49.1
+    sketch_zoom: float = 1.0
+    sketch_distance: float = 1.0
 
 class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.zoom_range = self.cfg.zoom_range
+
+        self.sketch_elevations = []
+        self.sketch_azimuths = []
+        for pose in self.cfg.sketch_poses:
+            self.sketch_elevations.append(pose["elevation"])
+            self.sketch_azimuths.append(pose["azimuth"])
+
+        self.num_sketches = len(self.sketch_elevations)
+        self.sketch_elevations = torch.as_tensor(self.sketch_elevations, dtype=torch.float32)
+        self.sketch_azimuths = torch.as_tensor(self.sketch_azimuths, dtype=torch.float32)
+        self.sketch_fovs = torch.as_tensor(self.cfg.sketch_fov, dtype=torch.float32).repeat_interleave(repeats=self.num_sketches)
+        self.sketch_zooms = torch.as_tensor(self.cfg.sketch_zoom, dtype=torch.float32).repeat_interleave(repeats=self.num_sketches)
+        self.sketch_distances = torch.as_tensor(self.cfg.sketch_distance, dtype=torch.float32).repeat_interleave(repeats=self.num_sketches)
+
 
     def collate(self, batch) -> Dict[str, Any]:
         assert self.batch_size % self.cfg.n_view == 0, f"batch_size ({self.batch_size}) must be dividable by n_view ({self.cfg.n_view})!"
@@ -74,6 +91,13 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
             ).repeat_interleave(self.cfg.n_view, dim=0)
             elevation_deg = elevation / math.pi * 180.0
 
+        # Add elevations from sketches
+        sketch_elevations_deg = self.sketch_elevations
+        sketch_elevations_rad = torch.deg2rad(sketch_elevations_deg)
+        elevation_deg = torch.cat((elevation_deg, sketch_elevations_deg))
+        elevation = torch.cat((elevation, sketch_elevations_rad))
+
+
         # sample azimuth angles from a uniform distribution bounded by azimuth_range
         azimuth_deg: Float[Tensor, "B"]
         # ensures sampled azimuth angles in a batch cover the whole range
@@ -84,6 +108,7 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
         ) + self.azimuth_range[
             0
         ]
+        azimuth_deg = torch.cat((azimuth_deg, self.sketch_azimuths))
         azimuth = azimuth_deg * math.pi / 180
 
         ######## Different from original ########
@@ -93,6 +118,7 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
             * (self.fovy_range[1] - self.fovy_range[0])
             + self.fovy_range[0]
         ).repeat_interleave(self.cfg.n_view, dim=0)
+        fovy_deg = torch.cat((fovy_deg, self.sketch_fovs))
         fovy = fovy_deg * math.pi / 180
 
         # sample distances from a uniform distribution bounded by distance_range
@@ -101,6 +127,7 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
             * (self.camera_distance_range[1] - self.camera_distance_range[0])
             + self.camera_distance_range[0]
         ).repeat_interleave(self.cfg.n_view, dim=0)
+        camera_distances = torch.cat((camera_distances, self.sketch_distances))
         if self.cfg.relative_radius:
             scale = 1 / torch.tan(0.5 * fovy)
             camera_distances = scale * camera_distances
@@ -111,6 +138,7 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
             * (self.zoom_range[1] - self.zoom_range[0])
             + self.zoom_range[0]
         ).repeat_interleave(self.cfg.n_view, dim=0)
+        zoom = torch.cat((zoom, self.sketch_zooms))
         fovy = fovy * zoom
         fovy_deg = fovy_deg * zoom
         ###########################################
@@ -158,7 +186,6 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
             + self.cfg.light_distance_range[0]
         ).repeat_interleave(self.cfg.n_view, dim=0)
 
-        breakpoint()
         if self.cfg.light_sample_strategy == "dreamfusion":
             # sample light direction from a normal distribution with mean camera_position and std light_position_perturb
             light_direction: Float[Tensor, "B 3"] = F.normalize(
