@@ -34,9 +34,7 @@ class RandomMultiviewCameraDataModuleConfig(RandomCameraDataModuleConfig):
     n_view: int = 1
     zoom_range: Tuple[float, float] = (1.0, 1.0)
     sketch_poses: List = field(default_factory=list)
-    sketch_fov: float = 49.1
     sketch_zoom: float = 1.0
-    sketch_distance: float = 1.0
     sketch_perturb: float = 0.0
 
 class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
@@ -54,9 +52,9 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
         self.num_sketches = len(self.sketch_elevations)
         self.sketch_elevations = torch.as_tensor(self.sketch_elevations, dtype=torch.float32)
         self.sketch_azimuths = torch.as_tensor(self.sketch_azimuths, dtype=torch.float32)
-        self.sketch_fovs = torch.as_tensor(self.cfg.sketch_fov, dtype=torch.float32).repeat(self.num_sketches)
+        self.sketch_fovs = torch.as_tensor(self.cfg.eval_fovy_deg, dtype=torch.float32).repeat(self.num_sketches)
         self.sketch_zooms = torch.as_tensor(self.cfg.sketch_zoom, dtype=torch.float32).repeat(self.num_sketches)
-        self.sketch_distances = torch.as_tensor(self.cfg.sketch_distance, dtype=torch.float32).repeat(self.num_sketches)
+        self.sketch_distances = torch.as_tensor(self.cfg.eval_camera_distance, dtype=torch.float32).repeat(self.num_sketches)
         self.sketch_perturb = torch.as_tensor(self.cfg.sketch_perturb, dtype=torch.float32).repeat((self.num_sketches, 3))
 
     def collate(self, batch) -> Dict[str, Any]:
@@ -128,10 +126,13 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
             * (self.camera_distance_range[1] - self.camera_distance_range[0])
             + self.camera_distance_range[0]
         ).repeat_interleave(self.cfg.n_view, dim=0)
-        camera_distances = torch.cat((camera_distances, self.sketch_distances))
+
+        # Only scale training camera distances
         if self.cfg.relative_radius:
-            scale = 1 / torch.tan(0.5 * fovy)
+            scale = 1 / torch.tan(0.5 * fovy[:-self.num_sketches])
             camera_distances = scale * camera_distances
+
+        camera_distances = torch.cat((camera_distances, self.sketch_distances))
 
         # zoom in by decreasing fov after camera distance is fixed
         zoom: Float[Tensor, "B"] = (

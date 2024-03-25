@@ -29,9 +29,7 @@ data:
       azimuth: 180
     - elevation: -89.999 # Renderer for some reason doesn't work for 90. Maybe due to Gimbal Lock issue.
       azimuth: 0
-  sketch_fov: 49.1
   sketch_zoom: 1.0
-  sketch_distance: 1.1419696692855839 # relative
   sketch_perturb: 0.
 
 system_type: "mvdream-system"
