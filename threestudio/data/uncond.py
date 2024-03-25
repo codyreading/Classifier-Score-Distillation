@@ -369,7 +369,6 @@ class RandomCameraDataset(Dataset):
         # Add sketches
         azimuth_deg = torch.cat((azimuth_deg, sketch_azimuths))
         elevation_deg = torch.cat((elevation_deg, sketch_elevations))
-        breakpoint()
 
         camera_distances: Float[Tensor, "B"] = torch.full_like(
             elevation_deg, self.cfg.eval_camera_distance
