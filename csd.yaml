@@ -32,6 +32,7 @@ data:
   sketch_fov: 49.1
   sketch_zoom: 1.0
   sketch_distance: 1.1419696692855839 # relative
+  sketch_perturb: 0.
 
 system_type: "mvdream-system"
 system:
