@@ -3,10 +3,11 @@ trap "exit" INT TERM ERR
 trap "kill 0" EXIT
 export OMP_NUM_THREADS=1
 
-prompt="a teapot"
+prompt="a red sportscar"
 
-python launch.py --config ./csd.yaml --train --gpu 1 \
+python launch.py --config ./csd.yaml --train --gpu 2 \
 system.prompt_processor.prompt="$prompt" \
-data.object_name="teapot" \
+data.object_name="lambo2" \
 use_timestamp=False \
-system.loggers.wandb.name="teapot"
+system.loggers.wandb.name="lambo2" \
+tag="lambo2"
