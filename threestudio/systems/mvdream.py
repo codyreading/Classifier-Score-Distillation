@@ -10,7 +10,7 @@ from threestudio.systems.base import BaseLift3DSystem
 from threestudio.utils.misc import cleanup, get_device, separate_dict
 from threestudio.utils.ops import binary_cross_entropy, dot
 from threestudio.utils.typing import *
-
+from threestudio.utils import losses
 
 @threestudio.register("mvdream-system")
 class MVDreamSystem(BaseLift3DSystem):
@@ -29,8 +29,6 @@ class MVDreamSystem(BaseLift3DSystem):
             self.cfg.prompt_processor
         )
         self.prompt_utils = self.prompt_processor()
-
-
 
     def on_load_checkpoint(self, checkpoint):
         for k in list(checkpoint['state_dict'].keys()):
@@ -112,8 +110,16 @@ class MVDreamSystem(BaseLift3DSystem):
             self.log("train/loss_sketch_mask", loss_sketch_mask)
             loss += loss_sketch_mask * self.C(self.cfg.loss.lambda_sketch_mask)
 
+        if self.C(self.cfg.loss.lambda_sketch_distance) > 0:
+            loss_sketch_distance = losses.sketch_distance(points=out_all["points"],
+                                                          density=out_all["density"],
+                                                          mvp_mtx=sketch_batch["mvp_mtx"],
+                                                          distances=batch["sketch_distances"])
+
         for name, value in self.cfg.loss.items():
             self.log(f"train_params/{name}", self.C(value))
+
+
 
         breakpoint()
         return {"loss": loss}
