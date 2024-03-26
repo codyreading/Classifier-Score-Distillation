@@ -2,6 +2,8 @@ import os
 from dataclasses import dataclass, field
 
 import torch
+import torch.nn.functional as F
+import einops
 
 import threestudio
 from threestudio.systems.base import BaseLift3DSystem
@@ -27,6 +29,8 @@ class MVDreamSystem(BaseLift3DSystem):
             self.cfg.prompt_processor
         )
         self.prompt_utils = self.prompt_processor()
+
+
 
     def on_load_checkpoint(self, checkpoint):
         for k in list(checkpoint['state_dict'].keys()):
@@ -61,6 +65,7 @@ class MVDreamSystem(BaseLift3DSystem):
             self.log(f"train/{name}", value)
             if name.startswith("loss_"):
                 loss += value * self.C(self.cfg.loss[name.replace("loss_", "lambda_")])
+
 
         if self.C(self.cfg.loss.lambda_orient) > 0:
             if "normal" not in out:
@@ -99,9 +104,18 @@ class MVDreamSystem(BaseLift3DSystem):
             self.log("train/loss_eikonal", loss_eikonal)
             loss += loss_eikonal * self.C(self.cfg.loss.lambda_eikonal)
 
+        if self.C(self.cfg.loss.lambda_sketch_mask) > 0:
+            sketch_mask = einops.rearrange(sketch_out["opacity"], "B H W D -> B D H W")
+            sketch_mask = sketch_mask.clamp(1.0e-3, 1.0 - 1.0e-3)
+            sketch_mask_target = F.interpolate(batch["sketch_masks"], size=(sketch_mask.shape[-2], sketch_mask.shape[-1]))
+            loss_sketch_mask = binary_cross_entropy(sketch_mask, sketch_mask_target)
+            self.log("train/loss_sketch_mask", loss_sketch_mask)
+            loss += loss_sketch_mask * self.C(self.cfg.loss.lambda_sketch_mask)
+
         for name, value in self.cfg.loss.items():
             self.log(f"train_params/{name}", self.C(value))
 
+        breakpoint()
         return {"loss": loss}
 
     def validation_step(self, batch, batch_idx):

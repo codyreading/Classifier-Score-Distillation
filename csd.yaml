@@ -103,6 +103,9 @@ system:
     lambda_sparsity: 0.
     lambda_opaque: 0.
     lambda_z_variance: 0.
+    lambda_sketch_mask: 1.
+    lambda_sketch_distance: 1.
+
   optimizer:
     name: AdamW
     args:
