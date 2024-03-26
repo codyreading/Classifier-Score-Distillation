@@ -74,8 +74,9 @@ class MVDreamSystem(BaseLift3DSystem):
                 out["weights"].detach()
                 * dot(out["normal"], out["t_dirs"]).clamp_min(0.0) ** 2
             ).sum() / (out["opacity"] > 0).sum()
+            loss_orient = loss_orient * self.C(self.cfg.loss.lambda_orient)
             self.log("train/loss_orient", loss_orient)
-            loss += loss_orient * self.C(self.cfg.loss.lambda_orient)
+            loss += loss_orient
 
         if self.C(self.cfg.loss.lambda_sparsity) > 0:
             loss_sparsity = (out["opacity"] ** 2 + 0.01).sqrt().mean()
@@ -107,23 +108,23 @@ class MVDreamSystem(BaseLift3DSystem):
             sketch_mask = sketch_mask.clamp(1.0e-3, 1.0 - 1.0e-3)
             sketch_mask_target = F.interpolate(batch["sketch_masks"], size=(sketch_mask.shape[-2], sketch_mask.shape[-1]))
             loss_sketch_mask = binary_cross_entropy(sketch_mask, sketch_mask_target)
+            loss_sketch_mask = loss_sketch_mask *  self.C(self.cfg.loss.lambda_sketch_mask)
             self.log("train/loss_sketch_mask", loss_sketch_mask)
-            loss += loss_sketch_mask * self.C(self.cfg.loss.lambda_sketch_mask)
+            loss += loss_sketch_mask
 
         if self.C(self.cfg.loss.lambda_sketch_distance) > 0:
             loss_sketch_distance = losses.sketch_distance(points=out_all["points"],
                                                           density=out_all["density"],
                                                           mvp_mtx=sketch_batch["mvp_mtx"],
                                                           distances=batch["sketch_distances"])
-            self.log("train/loss_sketch_distance", loss_sketch_mask)
-            loss += loss_sketch_distance * self.C(self.cfg.loss.lambda_sketch_distance)
+            loss_sketch_distance = loss_sketch_distance * self.C(self.cfg.loss.lambda_sketch_distance)
+            self.log("train/loss_sketch_distance", loss_sketch_distance)
+            loss += loss_sketch_distance
 
         for name, value in self.cfg.loss.items():
             self.log(f"train_params/{name}", self.C(value))
 
 
-
-        breakpoint()
         return {"loss": loss}
 
     def validation_step(self, batch, batch_idx):
