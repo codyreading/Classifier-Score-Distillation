@@ -115,6 +115,8 @@ class MVDreamSystem(BaseLift3DSystem):
                                                           density=out_all["density"],
                                                           mvp_mtx=sketch_batch["mvp_mtx"],
                                                           distances=batch["sketch_distances"])
+            self.log("train/loss_sketch_distance", loss_sketch_mask)
+            loss += loss_sketch_distance * self.C(self.cfg.loss.lambda_sketch_distance)
 
         for name, value in self.cfg.loss.items():
             self.log(f"train_params/{name}", self.C(value))

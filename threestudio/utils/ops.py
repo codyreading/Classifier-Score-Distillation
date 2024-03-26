@@ -372,6 +372,10 @@ class MeshOBJ:
         return weight
 
 
+def gaussian_weighted_distance(distances: torch.Tensor, sigma=2):
+    weight = 1 - torch.exp(-(distances / (2 * sigma**2)))
+    return weight
+
 def ce_pq_loss(p, q, weight=None):
     def clamp(v, T=0.0001):
         return v.clamp(T, 1 - T)
