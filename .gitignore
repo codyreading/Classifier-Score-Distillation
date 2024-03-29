@@ -95,3 +95,5 @@ ipython_config.py
 outputs
 notebooks
 extern
+load
+wandb

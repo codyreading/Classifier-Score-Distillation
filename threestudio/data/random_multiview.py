@@ -33,12 +33,29 @@ class RandomMultiviewCameraDataModuleConfig(RandomCameraDataModuleConfig):
     relative_radius: bool = True
     n_view: int = 1
     zoom_range: Tuple[float, float] = (1.0, 1.0)
+    sketch_poses: List = field(default_factory=list)
+    sketch_zoom: float = 1.0
+    sketch_perturb: float = 0.0
 
 class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.zoom_range = self.cfg.zoom_range
+
+        self.sketch_elevations = []
+        self.sketch_azimuths = []
+        for pose in self.cfg.sketch_poses:
+            self.sketch_elevations.append(pose["elevation"])
+            self.sketch_azimuths.append(pose["azimuth"])
+
+        self.num_sketches = len(self.sketch_elevations)
+        self.sketch_elevations = torch.as_tensor(self.sketch_elevations, dtype=torch.float32)
+        self.sketch_azimuths = torch.as_tensor(self.sketch_azimuths, dtype=torch.float32)
+        self.sketch_fovs = torch.as_tensor(self.cfg.eval_fovy_deg, dtype=torch.float32).repeat(self.num_sketches)
+        self.sketch_zooms = torch.as_tensor(self.cfg.sketch_zoom, dtype=torch.float32).repeat(self.num_sketches)
+        self.sketch_distances = torch.as_tensor(self.cfg.eval_camera_distance, dtype=torch.float32).repeat(self.num_sketches)
+        self.sketch_perturb = torch.as_tensor(self.cfg.sketch_perturb, dtype=torch.float32).repeat((self.num_sketches, 3))
 
     def collate(self, batch) -> Dict[str, Any]:
         assert self.batch_size % self.cfg.n_view == 0, f"batch_size ({self.batch_size}) must be dividable by n_view ({self.cfg.n_view})!"
@@ -73,6 +90,13 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
             ).repeat_interleave(self.cfg.n_view, dim=0)
             elevation_deg = elevation / math.pi * 180.0
 
+        # Add elevations from sketches
+        sketch_elevations_deg = self.sketch_elevations
+        sketch_elevations_rad = torch.deg2rad(sketch_elevations_deg)
+        elevation_deg = torch.cat((elevation_deg, sketch_elevations_deg))
+        elevation = torch.cat((elevation, sketch_elevations_rad))
+
+
         # sample azimuth angles from a uniform distribution bounded by azimuth_range
         azimuth_deg: Float[Tensor, "B"]
         # ensures sampled azimuth angles in a batch cover the whole range
@@ -83,6 +107,7 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
         ) + self.azimuth_range[
             0
         ]
+        azimuth_deg = torch.cat((azimuth_deg, self.sketch_azimuths))
         azimuth = azimuth_deg * math.pi / 180
 
         ######## Different from original ########
@@ -92,6 +117,7 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
             * (self.fovy_range[1] - self.fovy_range[0])
             + self.fovy_range[0]
         ).repeat_interleave(self.cfg.n_view, dim=0)
+        fovy_deg = torch.cat((fovy_deg, self.sketch_fovs))
         fovy = fovy_deg * math.pi / 180
 
         # sample distances from a uniform distribution bounded by distance_range
@@ -100,9 +126,13 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
             * (self.camera_distance_range[1] - self.camera_distance_range[0])
             + self.camera_distance_range[0]
         ).repeat_interleave(self.cfg.n_view, dim=0)
+
+        # Only scale training camera distances
         if self.cfg.relative_radius:
-            scale = 1 / torch.tan(0.5 * fovy)
+            scale = 1 / torch.tan(0.5 * fovy[:-self.num_sketches])
             camera_distances = scale * camera_distances
+
+        camera_distances = torch.cat((camera_distances, self.sketch_distances))
 
         # zoom in by decreasing fov after camera distance is fixed
         zoom: Float[Tensor, "B"] = (
@@ -110,6 +140,7 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
             * (self.zoom_range[1] - self.zoom_range[0])
             + self.zoom_range[0]
         ).repeat_interleave(self.cfg.n_view, dim=0)
+        zoom = torch.cat((zoom, self.sketch_zooms))
         fovy = fovy * zoom
         fovy_deg = fovy_deg * zoom
         ###########################################
@@ -131,23 +162,27 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
         # default camera up direction as +z
         up: Float[Tensor, "B 3"] = torch.as_tensor([0, 0, 1], dtype=torch.float32)[
             None, :
-        ].repeat(self.batch_size, 1)
+        ].repeat(self.batch_size + self.num_sketches, 1)
 
         # sample camera perturbations from a uniform distribution [-camera_perturb, camera_perturb]
         camera_perturb: Float[Tensor, "B 3"] = (
             torch.rand(real_batch_size, 3) * 2 * self.cfg.camera_perturb
             - self.cfg.camera_perturb
         ).repeat_interleave(self.cfg.n_view, dim=0)
+        camera_perturb = torch.cat((camera_perturb, self.sketch_perturb))
         camera_positions = camera_positions + camera_perturb
+
         # sample center perturbations from a normal distribution with mean 0 and std center_perturb
         center_perturb: Float[Tensor, "B 3"] = (
             torch.randn(real_batch_size, 3) * self.cfg.center_perturb
         ).repeat_interleave(self.cfg.n_view, dim=0)
+        center_perturb = torch.cat((center_perturb, self.sketch_perturb))
         center = center + center_perturb
         # sample up perturbations from a normal distribution with mean 0 and std up_perturb
         up_perturb: Float[Tensor, "B 3"] = (
             torch.randn(real_batch_size, 3) * self.cfg.up_perturb
         ).repeat_interleave(self.cfg.n_view, dim=0)
+        up_perturb = torch.cat((up_perturb, self.sketch_perturb))
         up = up + up_perturb
 
         # sample light distance from a uniform distribution bounded by light_distance_range
@@ -157,11 +192,22 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
             + self.cfg.light_distance_range[0]
         ).repeat_interleave(self.cfg.n_view, dim=0)
 
+        sketch_light_distances = (
+            torch.rand(1)
+            * (self.cfg.light_distance_range[1] - self.cfg.light_distance_range[0])
+            + self.cfg.light_distance_range[0]
+        ).repeat_interleave(self.num_sketches, dim=0)
+        light_distances = torch.cat((light_distances, sketch_light_distances))
+
         if self.cfg.light_sample_strategy == "dreamfusion":
             # sample light direction from a normal distribution with mean camera_position and std light_position_perturb
+            light_perturb = torch.randn(real_batch_size, 3).repeat_interleave(self.cfg.n_view, dim=0)
+            sketch_light_perturb = torch.randn(1, 3).repeat_interleave(self.num_sketches, dim=0)
+            light_perturb = torch.cat((light_perturb, sketch_light_perturb))
+
             light_direction: Float[Tensor, "B 3"] = F.normalize(
                 camera_positions
-                + torch.randn(real_batch_size, 3).repeat_interleave(self.cfg.n_view, dim=0) * self.cfg.light_position_perturb,
+                + light_perturb * self.cfg.light_position_perturb,
                 dim=-1,
             )
             # get light position by scaling light direction by light distance
@@ -220,7 +266,7 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
         focal_length: Float[Tensor, "B"] = 0.5 * self.height / torch.tan(0.5 * fovy)
         directions: Float[Tensor, "B H W 3"] = self.directions_unit_focal[
             None, :, :, :
-        ].repeat(self.batch_size, 1, 1, 1)
+        ].repeat(self.batch_size+self.num_sketches, 1, 1, 1)
         directions[:, :, :, :2] = (
             directions[:, :, :, :2] / focal_length[:, None, None, None]
         )
@@ -246,6 +292,9 @@ class RandomMultiviewCameraIterableDataset(RandomCameraIterableDataset):
             "height": self.height,
             "width": self.width,
             "fovy": fovy_deg,
+            "num_sketches": self.num_sketches,
+            "sketch_masks": self.sketch_masks,
+            "sketch_distances": self.sketch_distance_maps
         }
 
 

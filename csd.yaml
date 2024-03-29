@@ -20,6 +20,19 @@ data:
   n_val_views: 4
   eval_camera_distance: 3.0
   eval_fovy_deg: 40.
+  sketch_poses:
+    - elevation: 0
+      azimuth: 0
+    - elevation: 0
+      azimuth: 90
+    - elevation: 0
+      azimuth: 180
+    - elevation: 89.999 # Renderer for some reason doesn't work for 90. Maybe due to Gimbal Lock issue.
+      azimuth: 0
+  sketch_zoom: 1.0
+  sketch_perturb: 0.
+  sketch_dir: "load/sketches"
+  object_name: "lambo"
 
 system_type: "mvdream-system"
 system:
@@ -83,8 +96,9 @@ system:
 
   loggers:
     wandb:
-      enable: false
-      project: "threestudio"
+      enable: true
+      project: "csd-mvsketch"
+      name: "lambo"
 
   loss:
     lambda_sds: 1.
@@ -92,6 +106,9 @@ system:
     lambda_sparsity: 0.
     lambda_opaque: 0.
     lambda_z_variance: 0.
+    lambda_sketch_mask: 2000.
+    lambda_sketch_distance: 1000.
+
   optimizer:
     name: AdamW
     args:

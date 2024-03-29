@@ -118,3 +118,22 @@ def broadcast(tensor, src=0):
     else:
         torch.distributed.broadcast(tensor, src=src)
         return tensor
+
+def separate_dict(input_dict, N):
+    # Create dictionaries to store the separated elements
+    dict1 = {}
+    dict2 = {}
+
+    # Iterate through the input dictionary
+    for key, value in input_dict.items():
+        # Check if the value is a PyTorch tensor
+        if isinstance(value, torch.Tensor):
+            # Extract the last N batches
+            dict1[key] = value[:-N]
+            dict2[key] = value[-N:]
+        else:
+            # If it's not a tensor, simply copy it into both dictionaries
+            dict1[key] = value
+            dict2[key] = value
+
+    return dict1, dict2

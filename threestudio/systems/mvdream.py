@@ -2,13 +2,15 @@ import os
 from dataclasses import dataclass, field
 
 import torch
+import torch.nn.functional as F
+import einops
 
 import threestudio
 from threestudio.systems.base import BaseLift3DSystem
-from threestudio.utils.misc import cleanup, get_device
+from threestudio.utils.misc import cleanup, get_device, separate_dict
 from threestudio.utils.ops import binary_cross_entropy, dot
 from threestudio.utils.typing import *
-
+from threestudio.utils import losses
 
 @threestudio.register("mvdream-system")
 class MVDreamSystem(BaseLift3DSystem):
@@ -34,22 +36,25 @@ class MVDreamSystem(BaseLift3DSystem):
                 return
         guidance_state_dict = {"guidance."+k : v for (k,v) in self.guidance.state_dict().items()}
         checkpoint['state_dict'] = {**checkpoint['state_dict'], **guidance_state_dict}
-        return 
+        return
 
     def on_save_checkpoint(self, checkpoint):
         for k in list(checkpoint['state_dict'].keys()):
             if k.startswith("guidance."):
                 checkpoint['state_dict'].pop(k)
-        return 
+        return
 
     def forward(self, batch: Dict[str, Any]) -> Dict[str, Any]:
         return self.renderer(**batch)
 
     def training_step(self, batch, batch_idx):
-        out = self(batch)
+        out_all = self(batch)
+
+        batch_, sketch_batch = separate_dict(batch, N=batch["num_sketches"])
+        out, sketch_out = separate_dict(out_all, N=batch["num_sketches"])
 
         guidance_out = self.guidance(
-            out["comp_rgb"], self.prompt_utils, **batch
+            out["comp_rgb"], self.prompt_utils, **batch_
         )
 
         loss = 0.0
@@ -58,6 +63,7 @@ class MVDreamSystem(BaseLift3DSystem):
             self.log(f"train/{name}", value)
             if name.startswith("loss_"):
                 loss += value * self.C(self.cfg.loss[name.replace("loss_", "lambda_")])
+
 
         if self.C(self.cfg.loss.lambda_orient) > 0:
             if "normal" not in out:
@@ -68,8 +74,9 @@ class MVDreamSystem(BaseLift3DSystem):
                 out["weights"].detach()
                 * dot(out["normal"], out["t_dirs"]).clamp_min(0.0) ** 2
             ).sum() / (out["opacity"] > 0).sum()
+            loss_orient = loss_orient * self.C(self.cfg.loss.lambda_orient)
             self.log("train/loss_orient", loss_orient)
-            loss += loss_orient * self.C(self.cfg.loss.lambda_orient)
+            loss += loss_orient
 
         if self.C(self.cfg.loss.lambda_sparsity) > 0:
             loss_sparsity = (out["opacity"] ** 2 + 0.01).sqrt().mean()
@@ -96,8 +103,27 @@ class MVDreamSystem(BaseLift3DSystem):
             self.log("train/loss_eikonal", loss_eikonal)
             loss += loss_eikonal * self.C(self.cfg.loss.lambda_eikonal)
 
+        if self.C(self.cfg.loss.lambda_sketch_mask) > 0:
+            sketch_mask = einops.rearrange(sketch_out["opacity"], "B H W D -> B D H W")
+            sketch_mask = sketch_mask.clamp(1.0e-3, 1.0 - 1.0e-3)
+            sketch_mask_target = F.interpolate(batch["sketch_masks"], size=(sketch_mask.shape[-2], sketch_mask.shape[-1]))
+            loss_sketch_mask = binary_cross_entropy(sketch_mask, sketch_mask_target)
+            loss_sketch_mask = loss_sketch_mask *  self.C(self.cfg.loss.lambda_sketch_mask)
+            self.log("train/loss_sketch_mask", loss_sketch_mask)
+            loss += loss_sketch_mask
+
+        if self.C(self.cfg.loss.lambda_sketch_distance) > 0:
+            loss_sketch_distance = losses.sketch_distance(points=out_all["points"],
+                                                          density=out_all["density"],
+                                                          mvp_mtx=sketch_batch["mvp_mtx"],
+                                                          distances=batch["sketch_distances"])
+            loss_sketch_distance = loss_sketch_distance * self.C(self.cfg.loss.lambda_sketch_distance)
+            self.log("train/loss_sketch_distance", loss_sketch_distance)
+            loss += loss_sketch_distance
+
         for name, value in self.cfg.loss.items():
             self.log(f"train_params/{name}", self.C(value))
+
 
         return {"loss": loss}
 
